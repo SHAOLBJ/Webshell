@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>控制台</title>
+<script type="text/javascript" src="js/jquery.js"></script>
+<script type="text/javascript" src="js/jquery-fieldselection.min.js"></script>
+<style>
+	*{
+		margin:0px;
+		padding:0px;
+	}
+	body{
+		overflow:hidden;
+	}
+	#log-container{
+		width:100%;
+		height:800px;
+	}
+	#log-container textarea.crtP{
+		width:100%;
+		height:100%;
+		background:#000;
+		color:#fff;
+		font-size: 13px;
+	    font-family: Lucida Console;
+		resize:none;
+		border-radius: 6px;
+		-webkit-transition: box-shadow 0.30s ease-in-out;
+		border: #87C6F9 2px solid;
+        box-shadow: 0 0 8px rgba(103, 166, 217, 1);
+	}
+	#log-container textarea.crtP::selection {
+		background:rgb(0,255,0); 
+		color:#000;
+	}
+	#log-container textarea.crtP::-moz-selection {
+		background:rgb(0,255,0); 
+		color:#000;
+	}
+	#log-container textarea.crtP::-webkit-selection {
+		background:rgb(0,255,0); 
+		color:#000;
+	}
+	
+</style>
+</head>
+<body>
+	<div id="log-container">
+		<textarea class="crtP" spellcheck="false"></textarea>
+	</div>
+</body>
+<script>
+	$(document).ready(function() {
+		var hisCmdArray = new Array();
+		var cmdIndex = 0;
+		var cmdSize = 0;
+		var tmpCmd = "";
+		var minRangeLength = 0;
+		var termShellStr = "";
+		var textareaCont = "";
+		var $textarea = $("#log-container textarea.crtP");
+		var maxLine = 200;
+		var fromX,fromY,toX,toY;
+		var TimeFn = null;
+		var isDbl = false;
+		//var dblCt = 0;
+		// 指定websocket路径
+		var websocket = new WebSocket('ws://192.168.111.133:8006/websockettail/webSecureCRT');
+		websocket.onmessage = function(event) {
+			//console.log("返回结果="+event.data);
+			var context = "";
+			// 接收服务端的实时日志并添加到HTML页面中
+			if(event.data.substring(0,9) === "startFlag"){
+				termShellStr = event.data.split("=")[1];
+				termShellStr = termShellStr.substring(0,termShellStr.length);
+				//console.log(termShellStr);
+				context = termShellStr;
+			}else {
+				context = event.data+"\n";
+			}
+			tmpCmd = "";
+			inputCmd($textarea,context);
+			minRangeLength = $textarea.val().length;
+			//console.log(minRangeLength);
+			// 滚动条滚动到最低部
+			$textarea.scrollTop($textarea[0].scrollHeight);
+		};
+		
+		function inputCmd(inputObj,cmd){
+			var hisCont = inputObj.val();
+			var array = $textarea.val().split("\n");
+			if(array.length>=maxLine){
+				/* var hasIndex = 0;
+				var deleteLength = 0;
+				while( array[hasIndex].length === 0){
+					deleteLength += array[hasIndex].length;
+					hasIndex++;
+				}
+				deleteLength += array[hasIndex].length;
+				console.log(deleteLength);
+				hisCont = hisCont.substring(deleteLength);
+				console.log(hisCont.length); */
+				for(var i=0;i<=array.length-maxLine;i++){
+					hisCont = hisCont.substring(array[i].length);
+				}
+				//console.log(hisCont.length);
+			}
+			hisCont = hisCont.substring(0,hisCont.length-tmpCmd.length);
+			inputObj.val(hisCont+cmd);
+		}
+		
+		/* var wsServer = 'ws://localhost:8888/Demo'; //服务器地址
+		var websocket = new WebSocket(wsServer); //创建WebSocket对象
+		websocket.send("hello");//向服务器发送消息
+		alert(websocket.readyState);//查看websocket当前状态
+		websocket.onopen = function (evt) {
+		//已经建立连接
+		};
+		websocket.onclose = function (evt) {
+		//已经关闭连接
+		};
+		websocket.onmessage = function (evt) {
+		//收到服务器消息，使用evt.data提取
+		};
+		websocket.onerror = function (evt) {
+		//产生异常
+		};  */
+		/* $("#log-container textarea").bind("keydown",function(event){ 
+			var keyCode = event.keyCode;
+			console.log(keyCode);
+		}); */
+		
+		$.fn.setCursorPosition = function(position){  
+		    if(this.lengh == 0) return this;  
+		    return $(this).setSelection(position, position);  
+		}  
+		  
+		$.fn.setSelection = function(selectionStart, selectionEnd) {  
+		    if(this.lengh == 0) return this;  
+		    input = this[0];  
+		  
+		    if (input.createTextRange) {  
+		        var range = input.createTextRange();  
+		        range.collapse(true);  
+		        range.moveEnd('character', selectionEnd);  
+		        range.moveStart('character', selectionStart);  
+		        range.select();  
+		    } else if (input.setSelectionRange) {  
+		        input.focus();  
+		        input.setSelectionRange(selectionStart, selectionEnd);  
+		    }  
+		  
+		    return this;  
+		}  
+		
+		$.fn.focusEnd = function(){ 
+		    this.setCursorPosition(this.val().length);  
+		}
+		
+		$textarea.click(function(event){
+			clearTimeout(TimeFn);
+	        TimeFn = setTimeout(function(){
+	        	console.log("click");
+		        isDbl = false;
+		        if(toX===fromX && toY===fromY && !isDbl){
+		        	$textarea.focusEnd();
+				}
+	        },300);
+		});
+		
+		$textarea.mouseup(function(event){
+			toX = event.pageX;
+			toY = event.pageY;
+		});
+		
+		/* $textarea.mousemove(function(event){
+			console.log(event)
+			console.log("mousemove");
+		}); */
+		
+		$textarea.mousedown(function(event){
+			//console.log(event.which);
+			if(event.which === 2){//如果按下鼠标中键
+				var range = $textarea.getSelection();
+				console.log(range.text);
+				inputCmd($textarea,range.text);
+				return false;
+			}
+			fromX = event.pageX;
+			fromY = event.pageY;
+		});
+		
+		$textarea.dblclick(function(event){
+			clearTimeout(TimeFn);
+			isDbl = true;
+			console.log("dblclick");
+		});
+		
+		
+		$(document).keydown(function(event){
+			//console.log(event.keyCode);
+			var range = $textarea.getSelection();
+			//console.log(range);
+			
+			if(event.keyCode == 13){
+				var array = $textarea.val().split("\n");
+				//alert(array[array.length-1]);
+				//send();
+				var message = array[array.length-1];
+				if(message.length>=termShellStr.length){
+					message = message.substring(termShellStr.length);
+					console.log(message);
+					if(message === "clear"){
+						$textarea.val(termShellStr);
+						//$textarea.focusEnd();
+						return false;
+					}else {
+						send(message);
+					}
+					if(message === ""){
+					}else {
+						hisCmdArray.push(message);
+						cmdIndex = hisCmdArray.length;
+						cmdSize = hisCmdArray.length;
+					}
+				}else{
+				    send(message);
+				}
+				console.log(hisCmdArray);
+			}else if(event.keyCode == 8){//删除键
+				var array = $textarea.val().split("\n");
+				//alert(array[array.length-1]);
+				//send();
+				var currLine = array[array.length-1];
+				//console.log(currLine+"--"+termShellStr);
+				if(currLine.substring(0,termShellStr.length) === termShellStr){
+				}else {
+					return false;
+				}
+				if(currLine === termShellStr){
+		    		return false;
+		    	}
+				
+			}else if(event.keyCode == 38){//向上键
+				cmdIndex--;
+				if(cmdIndex < 0){
+					cmdIndex = 0;
+					return false;
+				}
+				if(cmdIndex < cmdSize && cmdIndex >= 0){
+					var lastCmd = hisCmdArray[cmdIndex];
+					console.log(lastCmd);
+					inputCmd($textarea,lastCmd);
+					tmpCmd = lastCmd;
+				}
+				return false;
+			}else if(event.keyCode == 40){//向下键
+				cmdIndex++;
+				if(cmdIndex >= cmdSize){
+					cmdIndex = cmdSize-1;
+					return false;
+				}
+				if(cmdIndex < cmdSize && cmdIndex >= 0){
+					var nextCmd = hisCmdArray[cmdIndex];
+					console.log(nextCmd);
+					inputCmd($textarea,nextCmd);
+					tmpCmd = nextCmd;
+				}
+				return false;
+			}else if(event.keyCode == 37){//向左键
+				//console.log(minRangeLength);
+				if(range.end > minRangeLength){
+					
+				}else {
+					return false;
+				}
+			}
+			
+			if (event.keyCode == 67 && event.ctrlKey) {  //这里只能用alt，shift，ctrl等去组合其他键event.altKey、event.ctrlKey、event.shiftKey 属性
+                send("Ctrl+C");
+            } 
+		});
+		
+		
+		//发送消息
+	    function send(message){
+	    	websocket.send(message);
+	    }
+		
+	    $textarea.focusEnd();
+		
+	    /* $("#log-container textarea").change( function() {
+	    	var array = $("#log-container textarea").val().split("\n");
+	    	var currLine = array[array.length-1];
+	    	console.log(currLine+"--"+termShellStr);
+	    	if(currLine === termShellStr){
+	    		return false;
+	    	}
+	    }); */
+	});
+	
+</script>
+</body>
+</html>
